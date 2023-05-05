@@ -1,6 +1,8 @@
 extern crate prost_build;
 
 fn main() {
-    prost_build::compile_protos(&["src/codegen.proto"],
-                                &["src/"]).unwrap();
+    prost_build::Config::new()
+        .type_attribute(".", "#[derive(serde::Serialize, serde::Deserialize)]")
+        .compile_protos(&["src/codegen.proto"], &["src/"])
+        .unwrap();
 }

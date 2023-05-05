@@ -1,0 +1,83 @@
+{
+  "rel": { "catalog": "", "schema": "", "name": "authors" },
+  "columns": [
+    {
+      "name": "id",
+      "not_null": true,
+      "is_array": false,
+      "comment": "",
+      "length": -1,
+      "is_named_param": false,
+      "is_func_call": false,
+      "scope": "",
+      "table": { "catalog": "", "schema": "", "name": "authors" },
+      "table_alias": "",
+      "type": {
+        "catalog": "",
+        "schema": "pg_catalog",
+        "name": "varchar"
+      }
+    },
+    {
+      "name": "name",
+      "not_null": true,
+      "is_array": false,
+      "comment": "",
+      "length": -1,
+      "is_named_param": false,
+      "is_func_call": false,
+      "scope": "",
+      "table": { "catalog": "", "schema": "", "name": "authors" },
+      "table_alias": "",
+      "type": { "catalog": "", "schema": "", "name": "text" }
+    },
+    {
+      "name": "bio",
+      "not_null": false,
+      "is_array": false,
+      "comment": "",
+      "length": -1,
+      "is_named_param": false,
+      "is_func_call": false,
+      "scope": "",
+      "table": { "catalog": "", "schema": "", "name": "authors" },
+      "table_alias": "",
+      "type": { "catalog": "", "schema": "", "name": "text" }
+    },
+    {
+      "name": "created_at",
+      "not_null": true,
+      "is_array": false,
+      "comment": "",
+      "length": -1,
+      "is_named_param": false,
+      "is_func_call": false,
+      "scope": "",
+      "table": { "catalog": "", "schema": "", "name": "authors" },
+      "table_alias": "",
+      "type": {
+        "catalog": "",
+        "schema": "pg_catalog",
+        "name": "timestamp"
+      }
+    },
+    {
+      "name": "updated_at",
+      "not_null": true,
+      "is_array": false,
+      "comment": "",
+      "length": -1,
+      "is_named_param": false,
+      "is_func_call": false,
+      "scope": "",
+      "table": { "catalog": "", "schema": "", "name": "authors" },
+      "table_alias": "",
+      "type": {
+        "catalog": "",
+        "schema": "pg_catalog",
+        "name": "timestamp"
+      }
+    }
+  ],
+  "comment": ""
+}
