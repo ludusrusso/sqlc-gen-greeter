@@ -1,6 +1,9 @@
+use std::vec;
+
 use convert_case::{Case, Casing};
 use plugin::{Column, Table};
 use pluralizer::pluralize;
+use serde::{Deserialize, Serialize};
 
 pub mod plugin {
     include!(concat!(env!("OUT_DIR"), "/plugin.rs"));
@@ -25,12 +28,15 @@ impl Named for Table {
     }
 }
 
-pub fn crud(t: &Table) -> Option<String> {
+pub fn crud(t: &Table, opts: &Config) -> Option<String> {
+    let name = t.name();
+    let conf = opts.tables.iter().find(|c| c.table == name)?;
+
     let create = create_query(t)?;
-    let update = update_query(t)?;
-    let list = list_query(t)?;
-    let cnt = count_list_query(t)?;
-    let delete = delete_query(t)?;
+    let update = update_query(t, conf)?;
+    let list = list_query(t, conf)?;
+    let cnt = count_list_query(t, conf)?;
+    let delete = delete_query(t, conf)?;
 
     let head = include_str!("./head.txt");
 
@@ -58,8 +64,8 @@ pub fn create_query(table: &Table) -> Option<String> {
     Some(res)
 }
 
-pub fn update_query(t: &Table) -> Option<String> {
-    let cols = get_update_cols(&t.columns);
+pub fn update_query(t: &Table, conf: &TableConfig) -> Option<String> {
+    let cols = get_update_cols(&t.columns, conf);
     let upds = cols
         .iter()
         .map(|c| get_update_sql(c))
@@ -71,45 +77,84 @@ pub fn update_query(t: &Table) -> Option<String> {
         t.singular(),
         t.name(),
         upds,
-        select_one(t)
+        select_one(conf)
     );
 
     Some(res)
 }
 
-pub fn delete_query(t: &Table) -> Option<String> {
+pub fn delete_query(t: &Table, conf: &TableConfig) -> Option<String> {
     let res = format!(
         "-- name: Delete{} :one \nDELETE FROM {} WHERE {} RETURNING *;",
         t.singular(),
         t.name(),
-        select_one(t)
+        select_one(conf)
     );
 
     Some(res)
 }
 
-pub fn list_query(t: &Table) -> Option<String> {
-    let res = format!(
-        "-- name: List{} :many \nSELECT * FROM {} LIMIT @take OFFSET @skip;",
-        t.plural(),
-        t.name(),
-    );
+pub fn list_query(t: &Table, conf: &TableConfig) -> Option<String> {
+    let tnt = select_tenant(conf);
+
+    let res = if tnt.is_empty() {
+        format!(
+            "-- name: List{} :many \nSELECT * FROM {} LIMIT @take OFFSET @skip;",
+            t.plural(),
+            t.name(),
+        )
+    } else {
+        format!(
+            "-- name: List{} :many \nSELECT * FROM {} WHERE {} LIMIT @take OFFSET @skip;",
+            t.plural(),
+            t.name(),
+            tnt
+        )
+    };
 
     Some(res)
 }
 
-pub fn count_list_query(t: &Table) -> Option<String> {
-    let res = format!(
-        "-- name: CountList{} :one \nSELECT COUNT(*) FROM {};",
-        t.plural(),
-        t.name(),
-    );
+pub fn count_list_query(t: &Table, conf: &TableConfig) -> Option<String> {
+    let tnt = select_tenant(conf);
+
+    let res = if tnt.is_empty() {
+        format!(
+            "-- name: CountList{} :one \nSELECT COUNT(*) FROM {};",
+            t.plural(),
+            t.name(),
+        )
+    } else {
+        format!(
+            "-- name: CountList{} :one \nSELECT COUNT(*) FROM {} WHERE {};",
+            t.plural(),
+            t.name(),
+            tnt
+        )
+    };
 
     Some(res)
 }
 
-fn select_one(_: &Table) -> &str {
-    "id = @id"
+fn select_one(conf: &TableConfig) -> String {
+    let mut ids: Vec<&String> = vec![];
+    ids.extend(&conf.id_cols);
+    ids.extend(&conf.tenants_cols);
+
+    ids.iter()
+        .map(|id| format!("{} = @{}", id, id))
+        .collect::<Vec<String>>()
+        .join(" AND ")
+}
+
+fn select_tenant(conf: &TableConfig) -> String {
+    let mut ids: Vec<&String> = vec![];
+    ids.extend(&conf.tenants_cols);
+
+    ids.iter()
+        .map(|id| format!("{} = @{}", id, id))
+        .collect::<Vec<String>>()
+        .join(" AND ")
 }
 
 fn get_create_cols(cols: &Vec<plugin::Column>) -> Vec<plugin::Column> {
@@ -119,9 +164,13 @@ fn get_create_cols(cols: &Vec<plugin::Column>) -> Vec<plugin::Column> {
         .collect::<Vec<plugin::Column>>()
 }
 
-fn get_update_cols(cols: &Vec<plugin::Column>) -> Vec<plugin::Column> {
+fn get_update_cols(cols: &Vec<plugin::Column>, conf: &TableConfig) -> Vec<plugin::Column> {
     cols.iter()
-        .filter(|col| col.name != "id" && col.name != "created_at")
+        .filter(|col| {
+            col.name != "created_at"
+                && !conf.id_cols.contains(&col.name)
+                && !conf.tenants_cols.contains(&col.name)
+        })
         .map(|c| c.clone())
         .collect::<Vec<plugin::Column>>()
 }
@@ -181,7 +230,7 @@ mod tests {
         let table_json = include_str!("./tests/table.json");
         let table: plugin::Table = serde_json::from_str(table_json).unwrap();
 
-        let res = delete_query(&table);
+        let res = delete_query(&table, &TableConfig::default());
         assert_eq!(
             res,
             Some(
@@ -196,7 +245,8 @@ mod tests {
         let table_json = include_str!("./tests/table.json");
         let table: plugin::Table = serde_json::from_str(table_json).unwrap();
 
-        let res = list_query(&table);
+        let res = list_query(&table, &TableConfig::default());
+
         assert_eq!(
             res,
             Some(
@@ -211,7 +261,7 @@ mod tests {
         let table_json = include_str!("./tests/table.json");
         let table: plugin::Table = serde_json::from_str(table_json).unwrap();
 
-        let res = count_list_query(&table);
+        let res = count_list_query(&table, &TableConfig::default());
         assert_eq!(
             res,
             Some("-- name: CountListAuthors :one \nSELECT COUNT(*) FROM authors;".to_string())
@@ -223,7 +273,7 @@ mod tests {
         let table_json = include_str!("./tests/table.json");
         let table: plugin::Table = serde_json::from_str(table_json).unwrap();
 
-        let res = update_query(&table);
+        let res = update_query(&table, &TableConfig::default());
 
         assert_eq!(
             res,
@@ -232,5 +282,43 @@ mod tests {
                     .to_string()
             )
         );
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Config {
+    #[serde(default = "default_tables")]
+    pub tables: Vec<TableConfig>,
+}
+
+fn default_tables() -> Vec<TableConfig> {
+    vec![]
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TableConfig {
+    table: String,
+    #[serde(default = "default_id_cols")]
+    id_cols: Vec<String>,
+
+    #[serde(default = "default_tenants_cols")]
+    tenants_cols: Vec<String>,
+}
+
+fn default_id_cols() -> Vec<String> {
+    vec!["id".to_string()]
+}
+
+fn default_tenants_cols() -> Vec<String> {
+    vec![]
+}
+
+impl Default for TableConfig {
+    fn default() -> Self {
+        TableConfig {
+            table: "".to_string(),
+            id_cols: default_id_cols(),
+            tenants_cols: default_tenants_cols(),
+        }
     }
 }

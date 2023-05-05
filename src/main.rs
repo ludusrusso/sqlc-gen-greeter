@@ -23,12 +23,10 @@ pub fn serialize_codegen_response(resp: &plugin::CodeGenResponse) -> Vec<u8> {
 }
 
 pub fn create_codegen_response(req: &CodeGenRequest) -> plugin::CodeGenResponse {
-    let mut file = plugin::File::default();
-    file.name = "hello.txt".to_string();
-    file.contents = "Hello World Ludovico".as_bytes().to_vec();
+    let opts: crud::Config =
+        serde_json::from_slice(&req.clone().settings.unwrap().codegen.unwrap().options).unwrap();
 
     let mut resp = plugin::CodeGenResponse::default();
-    resp.files.push(file);
 
     let mut file = plugin::File::default();
     file.name = "req.json".to_string();
@@ -36,32 +34,45 @@ pub fn create_codegen_response(req: &CodeGenRequest) -> plugin::CodeGenResponse 
 
     req.catalog
         .iter()
-        .for_each(|catalog| handle_catalog(&catalog, &mut resp));
+        .for_each(|catalog| handle_catalog(&catalog, &mut resp, &opts));
 
     resp.files.push(file);
+
+    let mut file = plugin::File::default();
+    file.name = "opts.json".to_string();
+    file.contents = serde_json::to_string(&opts).unwrap().as_bytes().to_vec();
+    resp.files.push(file);
+
     resp
 }
 
-fn handle_catalog(catalog: &plugin::Catalog, res: &mut plugin::CodeGenResponse) {
+fn handle_catalog(
+    catalog: &plugin::Catalog,
+    res: &mut plugin::CodeGenResponse,
+    opts: &crud::Config,
+) {
     catalog
         .schemas
         .iter()
-        .for_each(|schema| handle_schema(&schema, res));
+        .for_each(|schema| handle_schema(&schema, res, opts));
 }
 
-fn handle_schema(schema: &plugin::Schema, res: &mut plugin::CodeGenResponse) {
+fn handle_schema(schema: &plugin::Schema, res: &mut plugin::CodeGenResponse, opts: &crud::Config) {
     schema
         .tables
         .iter()
-        .for_each(|table| handle_table(&table, res));
+        .for_each(|table| handle_table(&table, res, opts));
 }
 
-fn handle_table(table: &plugin::Table, res: &mut plugin::CodeGenResponse) {
-    let mut file = plugin::File::default();
-    let name = table.rel.clone().unwrap().name.clone();
-    file.name = format!("{}_crud.gen.sql", name);
-    file.contents = crud(&table).unwrap().as_bytes().to_vec();
-    res.files.push(file);
+fn handle_table(table: &plugin::Table, res: &mut plugin::CodeGenResponse, opts: &crud::Config) {
+    let cr = crud(&table, opts);
+    if let Some(r) = cr {
+        let mut file = plugin::File::default();
+        let name = table.rel.clone().unwrap().name.clone();
+        file.name = format!("{}_crud.gen.sql", name);
+        file.contents = r.as_bytes().to_vec();
+        res.files.push(file);
+    }
 }
 
 fn main() -> Result<(), prost::DecodeError> {
@@ -98,7 +109,7 @@ mod tests {
         let mut res = plugin::CodeGenResponse::default();
         let table: plugin::Table = serde_json::from_str(table_json).unwrap();
 
-        handle_table(&table, &mut res);
+        handle_table(&table, &mut res, &crud::Config { tables: vec![] });
         assert_eq!(res.files.len(), 1);
         assert_eq!(res.files[0].name, "authors_crud.gen.sql");
         println!(
