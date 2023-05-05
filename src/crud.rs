@@ -34,6 +34,7 @@ pub fn crud(t: &Table, opts: &Config) -> Option<String> {
 
     let create = create_query(t)?;
     let update = update_query(t, conf)?;
+    let get = get_query(t, conf)?;
     let list = list_query(t, conf)?;
     let cnt = count_list_query(t, conf)?;
     let delete = delete_query(t, conf)?;
@@ -41,8 +42,8 @@ pub fn crud(t: &Table, opts: &Config) -> Option<String> {
     let head = include_str!("./head.txt");
 
     let res = format!(
-        "{}\n\n\n{}\n\n{}\n\n{}\n\n{}\n\n{}",
-        head, create, update, list, cnt, delete
+        "{}\n\n\n{}\n\n{}\n\n{}\n\n{}\n\n{}\n\n{}",
+        head, create, update, get, list, cnt, delete
     );
     Some(res)
 }
@@ -111,6 +112,19 @@ pub fn list_query(t: &Table, conf: &TableConfig) -> Option<String> {
             tnt
         )
     };
+
+    Some(res)
+}
+
+pub fn get_query(t: &Table, conf: &TableConfig) -> Option<String> {
+    let tnt = select_one(conf);
+
+    let res = format!(
+        "-- name: Get{} :one \nSELECT * FROM {} WHERE {};",
+        t.singular(),
+        t.name(),
+        tnt
+    );
 
     Some(res)
 }
@@ -257,6 +271,22 @@ mod tests {
     }
 
     #[test]
+    fn test_get_query() {
+        let table_json = include_str!("./tests/table.json");
+        let table: plugin::Table = serde_json::from_str(table_json).unwrap();
+
+        let res = get_query(&table, &TableConfig::default());
+
+        assert_eq!(
+            res,
+            Some(
+                "-- name: GetAuthor :one \nSELECT * FROM authors WHERE id = @id;"
+                    .to_string()
+            )
+        );
+    }
+
+    #[test]
     fn test_count_list_query() {
         let table_json = include_str!("./tests/table.json");
         let table: plugin::Table = serde_json::from_str(table_json).unwrap();
@@ -297,12 +327,12 @@ fn default_tables() -> Vec<TableConfig> {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TableConfig {
-    table: String,
+    pub(crate) table: String,
     #[serde(default = "default_id_cols")]
-    id_cols: Vec<String>,
+    pub(crate) id_cols: Vec<String>,
 
     #[serde(default = "default_tenants_cols")]
-    tenants_cols: Vec<String>,
+    pub(crate) tenants_cols: Vec<String>,
 }
 
 fn default_id_cols() -> Vec<String> {
@@ -311,6 +341,15 @@ fn default_id_cols() -> Vec<String> {
 
 fn default_tenants_cols() -> Vec<String> {
     vec![]
+}
+
+impl TableConfig {
+    pub fn new(table: &str) -> Self {
+        TableConfig {
+            table: table.to_string(),
+            ..Default::default()
+        }
+    }
 }
 
 impl Default for TableConfig {
