@@ -109,7 +109,7 @@ mod tests {
         let mut res = plugin::CodeGenResponse::default();
         let table: plugin::Table = serde_json::from_str(table_json).unwrap();
 
-        handle_table(&table, &mut res, &crud::Config { tables: vec![] });
+        handle_table(&table, &mut res, &crud::Config { tables: vec![crud::TableConfig::new("authors")] });
         assert_eq!(res.files.len(), 1);
         assert_eq!(res.files[0].name, "authors_crud.gen.sql");
         println!(
