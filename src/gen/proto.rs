@@ -30,7 +30,67 @@ pub fn convert_table_fncs(t: &Table) -> String {
     let sing = t.singular();
 
     let res =
-        format!("func (t *{sing}) Pb() *pb.{sing} {{\n  return &pb.{sing} {{\n{result}\n}}\n}}",);
+        format!("func (t {sing}) Pb() *pb.{sing} {{\n  return &pb.{sing} {{\n{result}\n}}\n}}",);
+
+    return res;
+}
+
+pub fn create_crud_service(t: &Table) -> String {
+    let sing = t.singular();
+    let sing_snake = t.sing_snake();
+    let name = t.name();
+
+    let res = format!(
+        r#"service {sing}CrudService {{
+            rpc Create{sing}(Create{sing}Request) returns (Create{sing}Response) {{}}
+            rpc Get{sing}(Get{sing}Request) returns (Get{sing}Response) {{}}
+            rpc Update{sing}(Update{sing}Request) returns (Update{sing}Response) {{}}
+            rpc Delete{sing}(Delete{sing}Request) returns (Delete{sing}Response) {{}}
+            rpc List{sing}s(List{sing}sRequest) returns (List{sing}sResponse) {{}}
+          }})
+          
+          message Create{sing}Request {{
+            {sing} {sing_snake} = 1;
+          }}
+
+           message Create{sing}Response {{
+            {sing} {sing_snake} = 1;
+        }}
+
+        message Get{sing}Request {{
+            string id = 1;
+        }}
+        
+        message Get{sing}Response {{
+            {sing} {sing_snake} = 1;
+        }}
+
+        message Update{sing}Request {{
+            {sing} {sing_snake} = 1;
+        }}
+
+        message Update{sing}Response {{
+            {sing} {sing_snake} = 1;
+        }}
+
+        message Delete{sing}Request {{
+            string id = 1;
+        }}
+
+        message Delete{sing}Response {{
+            string id = 1;
+        }}
+
+        message List{sing}sRequest {{
+            int32 limit = 1;
+            int32 offset = 2;
+        }}
+
+        message List{sing}sResponse {{
+            repeated {sing} {name}s = 1;
+        }}
+        "#
+    );
 
     return res;
 }

@@ -1,7 +1,7 @@
 pub use conf::*;
 pub use crud::crud;
 pub use data::*;
-pub use proto::proto_gen;
+pub use proto::*;
 
 mod conf;
 mod crud;

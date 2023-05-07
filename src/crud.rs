@@ -9,22 +9,17 @@ pub fn create_codegen_response(req: &CodeGenRequest) -> CodeGenResponse {
     let opts: Config =
         serde_json::from_slice(&req.clone().settings.unwrap().codegen.unwrap().options).unwrap();
 
-    let mut resp = CodeGenResponse::default();
-
-    let mut file = gen::File::default();
-    file.name = "req.json".to_string();
-    file.contents = serde_json::to_string(&req).unwrap().as_bytes().to_vec();
-
-    resp.files.push(file);
-
     let tables = get_tables(req);
-    tables
+    let files = tables
         .iter()
         .map(|t| table_to_crud_file(t, &opts))
         .flatten()
-        .for_each(|f| resp.files.push(f));
+        .collect();
 
-    resp
+    CodeGenResponse {
+        files: files,
+        ..Default::default()
+    }
 }
 
 fn table_to_crud_file(table: &gen::Table, opts: &Config) -> Option<gen::File> {

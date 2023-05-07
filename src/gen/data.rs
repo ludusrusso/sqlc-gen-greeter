@@ -9,6 +9,11 @@ pub mod plugin {
 
 pub trait Named {
     fn name(&self) -> String;
+
+    fn sing_snake(&self) -> String {
+        pluralize(self.name().to_case(Case::Snake).as_str(), 1, false)
+    }
+
     fn camel_case_name(&self) -> String {
         self.name().to_case(Case::UpperCamel)
     }
