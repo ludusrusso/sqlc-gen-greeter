@@ -18,3 +18,11 @@ pluralizer = "0.4.0"
 
 [build-dependencies]
 prost-build = "0.9.0"
+
+[[bin]]
+name = "sqlc-gen-proto"
+path = "src/proto.rs"
+
+[[bin]]
+name = "sqlc-gen-crud"
+path = "src/crud.rs"
